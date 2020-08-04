@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">TutorPal</string>
+    <string name="points">Redeem Points!</string>
+    <string name="find_tutor">Find Tutor!</string>
+    <string name="find_students">Find Students!</string>
+    <string name="findTutorText">Welcome to the Find Tutor Activity</string>
+    <string name="findStudentText">Welcome to the Find Students Activity</string>
+    <string name="pointsText">Welcome to the Redeem Points Activity</string>
+</resources>
