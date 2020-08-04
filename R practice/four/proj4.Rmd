@@ -1,0 +1,88 @@
+---
+title: "Project4"
+author: "Jin Ah Kang"
+date: "5/10/2019"
+output: html_document
+---
+
+#1.Use this piece of code to download and prepare data for use in project
+```{r 1}
+library(tidyverse)
+library(stringr)
+
+arrest_tab <- read_csv("http://www.hcbravo.org/IntroDataSci/misc/BPD_Arrests.csv")
+
+dat <- arrest_tab %>% 
+  filter(!is.na(`Location 1`)) %>%
+  separate(`Location 1`, c("lat","lng"), sep=",") %>%
+  mutate(lat=as.numeric(str_replace(lat, "\\(", ""))) %>%
+  mutate(lng=as.numeric(str_replace(lng, "\\)", ""))) %>%
+  sample_n(2000)
+dat
+```
+
+#2.Use the leaflet package to create an interactive map of Baltimore
+```{r 2}
+library(leaflet)
+
+balto_map <- leaflet(dat) %>%
+  addTiles() %>%
+  setView(lat=39.29, lng=-76.61, zoom=11)
+balto_map
+```
+
+#3.Add graphical elements to display the data. For instance, add circles, with colors indicating sex. Or circles with colors indicating race. Or anything else that strikes your fancy.
+```{r 3 first}
+getColor <- function(dat) {
+  sapply(dat$age, function(age) {
+    if(age < 20) {
+      "red"
+    } else if(age < 30) {
+      "white"
+    } else if(age < 40) {
+      "orange"
+    } else if(age < 50) {
+      "blue"
+    } else if(age < 60) {
+      "green"
+    } else {
+      "black"
+    }
+    })
+}
+
+icons <- awesomeIcons(
+  icon = 'fa-user',
+  library = 'fa',
+  markerColor = getdColor(dat)
+)
+
+balto_map %>% addAwesomeMarkers(icon = icons, label = ~as.character(age))
+```
+
+#(a) code to carry out each of the steps above
+#(b) output showing the result of your code
+#(c) a short prose description of your interactive map
+I divide the marks according to ages; The mark in the map shows that there are more white mark (age between 20 and 29) than any other age groups; the orange mark (age between 30 and 39) and the green mark (age between 40 and 49) are shown equally as many; one green mark (age between 50 and 59) is shown among as many as 5 white, blue or orange marks and most of the green mark appears towards center (the further away from the center of Baltimore, the less green mark we can observe); the black mark (age of 60 or more) is very rare that it can even be counted with by observing the map. 
+
+```{r analysis}
+a0 <- dat %>%
+  filter(age < 20) %>% count()
+a1 <- dat %>%
+  filter(age >= 20 & age < 30) %>% count()
+a2 <- dat %>%
+  filter(age >= 30 & age < 40) %>% count()
+a3 <- dat %>%
+  filter(age >= 40 & age < 50) %>% count()
+a4 <- dat %>%
+  filter(age >= 50 & age < 60) %>% count()
+a5 <- dat %>%
+  filter(age >= 60) %>% count()
+
+a0
+a1
+a2
+a3
+a4
+a5
+```

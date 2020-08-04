@@ -1,0 +1,203 @@
+---
+title: "proj2"
+author: "Jin Ah Kang"
+date: "March 26, 2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+## 1990-2014(inclusive), Salaries, Teams
+```{r setup}
+library(DBI)
+library(tidyverse)
+library(tibble)
+library(ggplot2)
+
+db <- dbConnect(RSQLite::SQLite(), "lahman2014.sqlite")
+
+```
+
+## Using SQL, write a query to compute the total payroll and winning percentage (number of wins / number of games * 100) for each team (that is, for each teamID and yearID combination). You should include other columns that will help when performing EDA later on (e.g., franchise ids, number of wins, number of games).
+P1
+```{sql run_query, connection=db,  output.var="total_payroll"}
+select teams.teamID, teams.yearID, new_salaries.lgID, new_salaries.payroll, teams.franchID, teams.Rank, W, G, ((w * 1.0 / G) *100) AS winning_percentage
+from Teams, (
+  select salaries.yearID, salaries.teamID, salaries.lgID, sum(salary) as payroll
+  from salaries
+  where salaries.yearID BETWEEN 1990 AND 2014
+  group by salaries.teamID, salaries.yearID
+) as new_salaries
+where teams.w > 0 and teams.G > 0 and new_salaries.teamID = teams.teamID and new_salaries.yearID = teams.yearID
+```
+
+```{r result1, warning=FALSE}
+total_payroll %>% sample_n(10)
+```
+
+## Write code to produce a plot (or plots) that shows the distribution of payrolls across teams conditioned on time (from 1990-2014). Note: you may create a single plot as long as the distributions for each year are clearly distinguishable (e.g., a single plot overlaying histograms is not OK).
+P2
+```{r plot1}
+total_payroll %>%
+  filter(yearID >= 1990 && yearID <= 2014) %>%
+  ggplot(aes(x = yearID, y = payroll, color = yearID)) +
+    geom_point() +
+    geom_smooth(method = "loess")
+```
+
+```{r plot2}
+total_payroll %>%
+  filter(yearID >= 1990 && yearID <= 2014) %>%
+  ggplot(aes(x = yearID, y = payroll)) +
+  geom_line() +
+  facet_wrap(~teamID) +
+  xlab("Year") +
+  ylab("Total payroll")
+  
+```
+
+## What statements can you make about the distribution of payrolls conditioned on time based on these plots? Remember you can make statements in terms of central tendency, spread, etc.
+## central trends (mean) spread (variance) skew outliers
+
+It seems that the average payrolls are increasing over time. The spread of the payroll of the teams also increases among the other teams as time passes. Some teams' payroll become much higher than the other and the gap between two are also increasing. 
+
+## Write code to produce a plot (or plots) that specifically shows at least one of the statements you made in Question 1. For example, if you make a statement that there is a trend for payrolls to decrease over time, make a plot of a statistic for central tendency (e.g., mean payroll) vs. time to show that specifically.
+P3
+```{r total_payroll_mean_by_year_and_team plot}
+total_payroll %>%
+  group_by(yearID) %>%
+  summarize(ave_payroll = mean(payroll)) %>%
+    ggplot(mapping=aes(y = ave_payroll, x = yearID, fill = yearID)) +
+    geom_bar(stat = "identity") +
+  ggtitle("Average total payroll of teams by year") +
+  geom_smooth(method = "loess")
+
+```
+```{r richest_to_poorest_by_year}
+total_payroll %>%
+  group_by(yearID) %>%
+  summarise(max_payroll = max(payroll), min_payroll = min(payroll)) %>%
+    ggplot(aes(y = (max_payroll-min_payroll), x = yearID)) +
+      geom_bar(stat = "identity") +
+      geom_smooth(method = "loess")
+```
+## Write code to discretize year into five time periods (using the cut function with parameter breaks=5) and then make a scatterplot showing mean winning percentage (y-axis) vs. mean payroll (x-axis) for each of the five time periods. You could add a regression line (using geom_smooth(method=lm)) in each scatter plot to ease interpretation. Note: look at the discussion on faceting in the visualization EDA lecture notes.
+P4
+```{r discretize}
+total_payroll$year_range <- cut(total_payroll$yearID, breaks = 5)
+
+ave_per_year <- total_payroll %>%
+  group_by(year_range, teamID) %>%
+  summarise(ave_pay_per_year = mean(payroll), ave_win_perc_per_year = mean(winning_percentage, na.rm = TRUE))
+```
+
+```{r result2}
+ave_per_year %>% sample_n(5)
+```
+
+```{r scatterplot_ave_payroll_and_winning_percentage_faceted_on_the_year_range}
+ave_per_year %>%
+  ggplot(aes(y = ave_win_perc_per_year, x = ave_pay_per_year)) + 
+  geom_point(aes(color = teamID)) +
+  geom_text(data = subset(ave_per_year, teamID == "OAK"), aes(label = teamID)) +
+  facet_wrap(~year_range) +
+  geom_smooth(method = 'lm')
+```
+## Q2 What can you say about team payrolls across these periods? Are there any teams that standout as being particularly good at paying for wins across these time periods? What can you say about the Oakland A's spending efficiency across these time periods (labeling points in the scatterplot can help interpretation).
+
+The spread of the average payroll increases as more teams are paying their players more and more over time. The regression lines changes from vetical to diagonal that the more money the team pay to players, the more winnings they have. NYA 
+
+## Write dplyr code to create a new variable in your dataset that standardizes payroll conditioned on year. So, this column for team i in year j should equal
+P5
+```{r standardizes_payroll_conditioned_on_year}
+std_payroll <- total_payroll %>%
+  group_by(yearID) %>%
+  summarize(ave_payroll_per_year = mean(payroll), sd_payroll_per_year = sd(payroll))
+```
+
+```{r join_and_create_std_payroll}
+#join std_payroll to the original data: total_payroll by yearID
+total_payroll <- total_payroll %>%
+  inner_join(std_payroll, by = c("yearID"))
+
+# new variable: std payroll for each team on each year
+total_payroll <- total_payroll %>%
+  mutate(std_payroll_conditioned_on_year = (payroll - ave_payroll_per_year) / sd_payroll_per_year)
+```
+
+```{r result3}
+total_payroll %>% select(teamID, yearID, ave_payroll_per_year, sd_payroll_per_year, std_payroll_conditioned_on_year) %>%
+  sample_n(10)
+```
+## Repeat the same plots as Problem 4, but use this new standardized payroll variable.
+P6
+```{r new_stdarized_payroll}
+total_payroll %>%
+  group_by(teamID, year_range) %>%
+  summarize(ave_pay_per_year = mean(std_payroll_conditioned_on_year), ave_win_perc_per_year = mean(winning_percentage, na.rm = TRUE)) %>%
+  ggplot(aes(y = ave_win_perc_per_year, x = ave_pay_per_year, label = teamID, color = teamID)) +
+  geom_point() +
+  geom_text() +
+  facet_wrap(~year_range) +
+  geom_smooth(method = 'lm')
+```
+## Q3 Discuss how the plots from Problem 4 and Problem 6 reflect the transformation you did on the payroll variable. Consider data range, center and spread along with observed correlation in your discussion. Some of these change after transformation, others don't.
+The new plot is the representation of the transformation since it is clear that each data point is relative to each other on a standard scale. 
+
+## Make a single scatter plot of winning percentage (y-axis) vs. standardized payroll (x-axis). Add a regression line to highlight the relationship (again using geom_smooth(method=lm)).
+
+p7
+```{r scatterplot_winning_percentage_vs_standardized_payroll}
+total_payroll %>%
+  ggplot(aes(y = winning_percentage, x = std_payroll_conditioned_on_year, label = teamID)) +
+geom_point(aes(color = Rank)) +
+  geom_smooth(method = 'lm')
+```
+## The regression line gives you expected winning percentage as a function of standardized payroll. Looking at the regression line, it looks like teams that spend roughly the average payroll in a given year will win 50% of their games (i.e. win_pct is 50 when standardized_payroll is 0), and teams increase 5% wins for every 2 standard units of payroll (i.e., win_pct is 55 when standardized_payroll is 2). We will see how this is done in general using linear regression later in the course.
+
+## From these observations we can calculate an expected win percentage for team i in year j as
+
+## expected_win_pct(ij) = 50 + 2.5 × standardized_payroll(ij)
+
+## Write dplyr code to calculate spending efficiency for each team 
+
+##efficiency(ij) = win_pct(ij) ??? expected_win_pct(ij)
+
+## for team i in year j, where expected_win_pct is given above.
+
+## Make a line plot with year on the x-axis and efficiency on the y-axis. A good set of teams to plot are Oakland, the New York Yankees, Boston, Atlanta and Tampa Bay (teamIDs OAK, BOS, NYA, ATL, TBA). That plot can be hard to read since there is so much year to year variation for each team. One way to improve it is to use geom_smooth instead of geom_line.
+P8
+```{r spending_efficiency_for_each_team}
+#expected_win_pct(ij) = 50 + 2.5 × standardized_payroll(ij)
+total_payroll <- total_payroll %>%
+  mutate(expected_win_pct = (50 + 2.5 * std_payroll_conditioned_on_year))
+
+#efficiency(ij) = win_pct(ij) ??? expected_win_pct(ij)
+total_payroll <- total_payroll %>%
+  mutate(efficiency = winning_percentage - expected_win_pct)
+```
+
+```{r result4}
+total_payroll %>% select(teamID, yearID, winning_percentage, expected_win_pct, efficiency) %>% sample_n(10)
+```
+
+```{r plot_efficiency_of_selected_team1}
+#(teamIDs OAK, BOS, NYA, ATL, TBA)
+total_payroll %>%
+  filter(teamID %in% c("OAK", "BOS", "NYA", "ATL", "TBA")) %>%
+  ggplot(aes(y = efficiency, x = yearID)) +
+  geom_point(aes(color = teamID)) +
+  geom_smooth(method = 'loess') +
+  ggtitle("Efficiency of Teams over time")
+```
+```{r plot_efficiency_of_selected_team2}
+#(teamIDs OAK, BOS, NYA, ATL, TBA)
+total_payroll %>%
+  filter(teamID %in% c("OAK", "BOS", "NYA", "ATL", "TBA")) %>%
+  ggplot(aes(y = efficiency, x = yearID, color = teamID)) +
+  geom_smooth(method = 'loess') +
+  ggtitle("Eficiency of specific team over time")
+```
+## Q4 What can you learn from this plot compared to the set of plots you looked at in Question 2 and 3? How good was Oakland's efficiency during the Moneyball period?
+From the graph, efficiency of team over time, we can see that winning efficienct of teams over time is increased to an all time high in 2000 and 
+In question 2 and 3, we observed that money has a high degree of influence on how well a team would do. Over time, the regression line of payroll and winning percentage emmerged; a team win more than 50% of their games if the team spend more than average amount of payroll on the team. Oakland is an outlier of the trend. During the Moneyball peroid, Oakland was more efficent than any other team from 2000 to 2005. In other words, Oakland was winning a lot more games than we could expected (by looking at how much they were spending on the team) 
