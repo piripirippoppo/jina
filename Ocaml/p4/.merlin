@@ -1,0 +1,5 @@
+B /cell_root/software/ocaml/4.04.0/sys/lib/ocaml
+B ../_build/default/src/.p4a.objs
+S /cell_root/software/ocaml/4.04.0/sys/lib/ocaml
+S .
+FLG -open P4a -w -40
