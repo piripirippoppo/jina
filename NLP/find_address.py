@@ -64,7 +64,7 @@ def find_phone_number(text):
 #1. check if the product is in the system (user-dic)
 #2. 품목찾기
 def name_finder(word):
-    with open('/var/www/y-orders/mecab-ko-dic-2.1.1-20180720/user-orange.csv', 'r') as f:
+    with open('../y-orders/mecab-ko-dic-2.1.1-20180720/user-orange.csv', 'r') as f:
         product = f.readlines()
 
     name = []
@@ -291,7 +291,7 @@ def find_address(copy_original):
 
 def find_person_name(name_candidates):
     name_candidate_list = name_candidates.split()
-    with open('/var/www/y-orders/mecab-ko-dic-2.1.1-20180720/Person.csv', 'r') as nr:
+    with open('../y-orders/mecab-ko-dic-2.1.1-20180720/Person.csv', 'r') as nr:
         names = nr.readlines()
         
     name_list = []
