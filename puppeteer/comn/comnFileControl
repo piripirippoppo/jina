@@ -1,0 +1,14 @@
+'use strict'
+const fs = require('fs');
+
+const initDirectory = (inPath) => {
+    if (!fs.existsSync(inPath)){
+        fs.mkdirSync(inPath);
+    }
+}
+
+module.exports = {
+    initDirectory
+}
+
+
