@@ -1,0 +1,33 @@
+'use strict'
+const moment = require('moment');
+
+const _screenshotPath = process.env.SCREENSHOT_PATH;
+
+const screenCapture = async (inFileName, inPage, inPath) => {
+    let fileName = inPath + inFileName + "_" + getTimestampString() + ".png"
+    await inPage.screenshot({path : fileName});
+}
+
+const getTimestampString = () => {
+    let dt = new Date();
+    return moment(dt).format("YYYYMMDDHHmmss");
+}
+
+const sleep = (ms) => {
+    const wakeUptime = Date.now() + ms;
+    while (Date.now() < wakeUptime){};
+}
+
+const getxPathEleOne = async (inPath, inPage) => {
+    let xTarget = inPath;
+    await inPage.waitForXPath(xTarget);
+    let xTagetEle = await inPage.$x(xTarget);
+    return xTagetEle[0];
+}
+
+module.exports = {
+    screenCapture
+    , getTimestampString
+    , sleep
+    , getxPathEleOne
+}
